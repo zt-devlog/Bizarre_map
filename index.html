@@ -1,0 +1,748 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>JoJo's Bizarre Adventure Map</title>
+    <script src='https://api.mapbox.com/mapbox-gl-js/v2.14.1/mapbox-gl.js'></script>
+    <link href='https://api.mapbox.com/mapbox-gl-js/v2.14.1/mapbox-gl.css' rel='stylesheet' />
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=IM+Fell+English:ital@0;1&display=swap');
+        @import url('https://fonts.googleapis.com/css2?family=Playfair+Display:wght@400;700&display=swap');
+        
+        body { margin: 0; padding: 0; }
+        #map { 
+            position: absolute; 
+            top: 0; 
+            bottom: 0; 
+            width: 100%; 
+        }
+        
+        /* Add parchment texture overlay */
+        #map::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background-image: url('https://www.transparenttextures.com/patterns/old-paper.png');
+            background-repeat: repeat;
+            opacity: 0.2;
+            z-index: 1;
+            pointer-events: none; /* Allow clicks to pass through to the map */
+        }
+        
+        /* Decorative border - purple gradient */
+        .map-border {
+            position: absolute;
+            top: 10px;
+            left: 10px;
+            right: 10px;
+            bottom: 10px;
+            border: 20px solid #8e2de2; /* Purple border */
+            background-image: linear-gradient(45deg, rgba(142, 45, 226, 0.2), rgba(74, 0, 224, 0.2)); /* Semi-transparent */
+            pointer-events: none; /* Allow clicks to pass through to the map */
+            z-index: 0;
+            box-shadow: 0 0 20px rgba(0, 0, 0, 0.5);
+        }
+
+        /* Inner border line */
+        .map-border::before {
+            content: '';
+            position: absolute;
+            top: 5px;
+            left: 5px;
+            right: 5px;
+            bottom: 5px;
+            border: 2px solid gold; /* Gold border */
+            pointer-events: none;
+        }
+
+        /* UI elements styling */
+        .menu, .logo, .journey-controls, .info-panel {
+            font-family: 'IM Fell English', serif;
+            background: linear-gradient(to right, rgba(142, 45, 226, 0.8), rgba(74, 0, 224, 0.8)); /* Purple gradient */
+            border: 3px solid gold; /* Gold border */
+            box-shadow: 0 0 10px rgba(0, 0, 0, 0.5);
+            color: white;
+            border-radius: 5px;
+            z-index: 2;
+        }
+
+        .menu {
+            position: absolute;
+            top: 10px;
+            left: 10px;
+            padding: 10px;
+        }
+
+        .logo {
+            position: absolute;
+            top: 10px;
+            right: 10px;
+            padding: 10px;
+            font-size: 35px;
+            font-weight: bold;
+        }
+
+        .journey-controls {
+            position: absolute;
+            bottom: 20px;
+            left: 10px;
+            padding: 10px;
+        }
+
+        .info-panel {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            padding: 20px;
+            max-width: 400px;
+            text-align: center;
+            display: block; /* Show info panel by default */
+        }
+
+        .menu h2, .info-panel h2, .journey-controls h3 {
+            margin: 0 0 10px 0;
+            font-family: 'Playfair Display', serif;
+            color: gold; /* Gold color */
+            text-shadow: 1px 1px 2px rgba(0, 0, 0, 0.5);
+        }
+
+        .checkbox-label {
+            display: block;
+            margin: 5px 0;
+        }
+
+        .journey-controls h3 {
+            margin: 0 0 10px 0;
+            font-size: 16px;
+        }
+
+        .journey-controls button {
+            background: #8e2de2; /* Purple */
+            color: white;
+            border: 1px solid gold;
+            padding: 5px 10px;
+            border-radius: 3px;
+            cursor: pointer;
+            width: 100%;
+            text-align: left;
+            font-family: 'IM Fell English', serif;
+            margin: 5px 0;
+            display: block;
+        }
+
+        .journey-controls button:hover {
+            background: #4a00e0; /* Darker purple */
+        }
+
+        .info-panel button {
+            background: #8e2de2; /* Purple */
+            color: white;
+            border: 1px solid gold;
+            padding: 8px 15px;
+            border-radius: 3px;
+            cursor: pointer;
+            margin-top: 10px;
+            font-family: 'IM Fell English', serif;
+        }
+        
+        /* Zoom Out Button Styling */
+        .zoom-out-btn {
+            position: absolute;
+            bottom: 20px;
+            right: 20px;
+            background: linear-gradient(to right, rgba(142, 45, 226, 0.8), rgba(74, 0, 224, 0.8));
+            color: white;
+            border: 3px solid gold;
+            border-radius: 5px;
+            padding: 10px 15px;
+            font-family: 'IM Fell English', serif;
+            font-size: 16px;
+            cursor: pointer;
+            z-index: 10;
+            box-shadow: 0 0 10px rgba(0, 0, 0, 0.5);
+        }
+        
+        .zoom-out-btn:hover {
+            background: linear-gradient(to right, rgba(74, 0, 224, 0.8), rgba(142, 45, 226, 0.8));
+        }
+        
+        .mapboxgl-popup {
+            max-width: 300px;
+        }
+        
+        /* Update popup styles to match the purple theme */
+        .mapboxgl-popup-content {
+            background: linear-gradient(to right, #8e2de2, #4a00e0);
+            color: white;
+            border: 2px solid gold;
+            font-family: 'IM Fell English', serif;
+            padding: 15px;
+        }
+
+        .mapboxgl-popup-content h3 {
+            margin: 0;
+            font-size: 18px;
+            text-transform: uppercase;
+            font-weight: bold;
+            border-bottom: 2px solid gold;
+            padding-bottom: 5px;
+            color: gold;
+        }
+        
+        .mapboxgl-popup-content p {
+            margin: 10px 0 0;
+        }
+        
+        /* Style for popup images */
+        .popup-image {
+            width: 100%;
+            max-height: 150px;
+            object-fit: cover;
+            margin-top: 10px;
+            border: 2px solid gold;
+            border-radius: 3px;
+        }
+/*image source text styling*/
+        .image-source {
+    font-size: 12px;
+    font-style: italic;
+    text-align: right;
+    margin-top: 5px;
+    color: rgba(255, 255, 255, 0.7);
+}
+
+        /* Make star icons more visible */
+        .unicode-marker {
+            font-family: 'Playfair Display', serif;
+            font-size: 32px; /* Increased from 24px */
+            text-shadow: 1px 1px 4px rgba(0, 0, 0, 0.8); /* Stronger shadow */
+            cursor: pointer;
+            user-select: none;
+            text-align: center;
+            line-height: 1;
+            font-weight: bold;
+            filter: drop-shadow(0 0 8px rgba(0, 0, 0, 0.7)); /* Stronger drop shadow */
+        }
+    </style>
+</head>
+<body>
+    <div id="map"></div>
+    <div class="map-border"></div>
+    
+    <div class="menu">
+        <h2>JoJo Parts</h2>
+        <label class="checkbox-label">
+            <input type="checkbox" value="phantom_blood" checked> Phantom Blood
+        </label>
+        <label class="checkbox-label">
+            <input type="checkbox" value="battle_tendency" checked> Battle Tendency
+        </label>
+        <label class="checkbox-label">
+            <input type="checkbox" value="stardust_crusaders" checked> Stardust Crusaders
+        </label>
+        <label class="checkbox-label">
+            <input type="checkbox" value="diamond_unbreakable" checked> Diamond is Unbreakable
+        </label>
+        <label class="checkbox-label">
+            <input type="checkbox" value="golden_wind" checked> Golden Wind
+        </label>
+        <label class="checkbox-label">
+            <input type="checkbox" value="stone_ocean" checked> Stone Ocean
+        </label>
+        <label class="checkbox-label">
+            <input type="checkbox" value="steel_ball_run" checked> Steel Ball Run
+        </label>
+        <label class="checkbox-label">
+            <input type="checkbox" value="jojolion" checked> JoJolion
+        </label>
+    </div>
+    <div id="info-panel" class="info-panel">
+        <h2>JoJo's Bizarre Adventure</h2>
+        <p>Explore the global journey across all eight parts of Hirohiko Araki's manga series. Follow the Joestar bloodline from Victorian England to modern Japan and beyond.</p>
+        <p>Use the filters to show locations from specific parts, and click on markers to learn more.</p>
+        <button id="close-info">Close</button>
+    </div>
+    <div class="logo">JoJo's Bizarre Adventure Map</div>
+    <div class="journey-controls">
+        <h3>Key Locations</h3>
+        <button id="fly-to-joestars">Joestar Mansion</button>
+        <button id="fly-to-egypt">DIO's Mansion (Cairo)</button>
+        <button id="fly-to-morioh">Morioh</button>
+        <button id="fly-to-italy">Italy</button>
+        <button id="fly-to-prison">Green Dolphin Prison</button>
+    </div>
+    <button id="zoom-out-btn" class="zoom-out-btn">Zoom Out</button>
+
+    <script>
+        /*
+        Project Statement:
+        ChatGPT assisted me in brainstorming the JoJo's Bizarre Adventure theme for this map, helping to identify key locations 
+        from each part of the series and their approximate real-world coordinates. It also helped troubleshoot the marker 
+        filtering system and suggested the custom styling for the popups to match the anime's aesthetic.
+
+        Technical sequence:
+        1. Initialize the MapBox API with a dark theme map
+        2. Create a structured data object organizing JoJo locations by series part
+        3. Generate custom markers for each location with themed styling
+        4. Implement popups with location information and part references
+        5. Create a filtering system using checkboxes to show/hide markers by part
+        6. Add navigation controls for better user experience
+        7. Apply custom CSS to create a cohesive JoJo-themed interface
+        */
+        
+        // Set Mapbox access token - you should replace this with your actual valid token
+        mapboxgl.accessToken = 'pk.eyJ1IjoiZ29pbmdtaWRuaWdodCIsImEiOiJjbThoc2dkdjAwNWgzMmpwdDF6MmgyMGhlIn0.gmxwcYZSJbkxdYZFzXJn-Q';
+        
+        // Show an error message if the map doesn't load properly
+        try {
+            // Initialize map with a vintage style and disable zoom
+            const map = new mapboxgl.Map({
+                container: 'map',
+                style: 'mapbox://styles/mapbox/light-v10', // Light theme for vintage look
+                center: [0, 30], // Center on a world view
+                zoom: 1.5,
+                scrollZoom: false, // Disable scroll zoom
+                doubleClickZoom: false, // Disable double click zoom
+                touchZoom: false, // Disable touch zoom on mobile
+                dragRotate: false, // Disable rotation
+                pitchWithRotate: false // Disable pitch with rotate
+            });
+
+            // Apply custom styling to make it look like an old map
+            map.on('style.load', function() {
+                // Change water color to light blue like in the reference
+                map.setPaintProperty('water', 'fill-color', '#A4D1E3');
+                
+                // Change land color to beige/yellow
+                map.setPaintProperty('land', 'background-color', '#F5DEB3');
+                
+                // Make country borders more prominent and hand-drawn looking
+                map.setPaintProperty('admin-0-boundary', 'line-color', '#5D4037');
+                map.setPaintProperty('admin-0-boundary', 'line-width', 1.5);
+            });
+
+            // Remove the navigation controls since we're disabling zoom
+
+            // Closes information panel
+            document.getElementById('close-info').addEventListener('click', function() {
+                document.getElementById('info-panel').style.display = 'none';
+            });
+
+            // Part name display mapping
+            const partDisplayNames = {
+                'phantom_blood': 'Phantom Blood',
+                'battle_tendency': 'Battle Tendency',
+                'stardust_crusaders': 'Stardust Crusaders',
+                'diamond_unbreakable': 'Diamond is Unbreakable',
+                'golden_wind': 'Golden Wind',
+                'stone_ocean': 'Stone Ocean',
+                'steel_ball_run': 'Steel Ball Run',
+                'jojolion': 'JoJolion'
+            };
+
+            // JoJo locations data organized by part
+           // JoJo locations data organized by part - Fixed version
+const jojoLocations = {
+    phantom_blood: [
+        {
+            name: "Joestar Mansion",
+            coordinates: [-0.171, 51.505], // London, England
+            description: "The Joestar family home, where Jonathan was raised and the Stone Mask was discovered.",
+            image: "img/joestarmansion.png",
+            imageSource: "JoJo's Bizarre Encyclopedia",  // Just the name of the source
+            imageSourceUrl: "https://jojowiki.com/Joestar_Mansion#Manga"  // Add the URL here
+        },
+        {
+            name: "Windknight's Lot",
+            coordinates: [-1.858, 52.576], // Near Birmingham, fictional location
+            description: "The village where Dio transformed into a vampire using the Stone Mask.",
+            image: "img/windknightslot.png",
+            imageSource: "JoJo's Bizarre Encyclopedia",  // Just the name of the source
+            imageSourceUrl: "https://jojowiki.com/Windknight%27s_Lot#Manga"  // Add the URL here
+        }
+    ],
+    battle_tendency: [
+        {
+            name: "New York City",
+            coordinates: [-74.006, 40.713],
+            description: "Where Joseph Joestar was living before his adventure began.",
+            image: "img/newyorkbt.png",
+            imageSource: "JoJo's Bizarre Encyclopedia",  // Just the name of the source
+            imageSourceUrl: "https://jojowiki.com/Minor_Locations/Part_2#New_York"  // Add the URL here
+        },
+        {
+            name: "Mexico - Pillar Men Awakening",
+            coordinates: [-99.133, 19.433], // Mexico City
+            description: "Where the Pillar Men Santana was discovered and awakened.",
+            image: "img/mexicobt.jpg",
+            imageSource: "JoJo's Bizarre Encyclopedia",  // Just the name of the source
+            imageSourceUrl: "https://jojowiki.com/Minor_Locations/Part_2#New_York"  // Add the URL here
+        },
+        {
+            name: "Rome Colosseum",
+            coordinates: [12.492, 41.891],
+            description: "Where Joseph Joestar and Caesar Anthonio Zeppeli meet in Rome.",
+            image: "img/romebt.png",
+            imageSource: "JoJo's Bizarre Encyclopedia",  // Just the name of the source
+            imageSourceUrl: "https://jojowiki.com/Minor_Locations/Part_2#New_York"  // Add the URL here
+        },
+        {
+            name: "Volcano Island",
+            coordinates: [8.231, 46.798], // Swiss Alps
+            description: "It is where Joseph Joestar fights Kars, who has turned into the Ultimate Thing. Joseph triggers a violent volcanic eruption, which helps defeat Kars.",
+            image: "img/volcano.png",
+            imageSource: "JoJo's Bizarre Encyclopedia",  // Just the name of the source
+            imageSourceUrl: "https://jojowiki.com/Minor_Locations/Part_2#New_York"  // Add the URL here
+        }
+    ],
+    stardust_crusaders: [
+        {
+            name: "Kujo Mansion",
+            coordinates: [139.839, 35.652], // Tokyo, specifically around Nerima
+            description: "A reoccuring location in the Stardust Crusaders part, home of Jotaro Joestar.",
+            image: "img/kujomansion.png",
+            imageSource: "JoJo's Bizarre Encyclopedia",  // Just the name of the source
+            imageSourceUrl: "https://jojowiki.com/Kujo_Mansion"  // Add the URL here
+        },
+        {
+            name: "Hong Kong",
+            coordinates: [114.169, 22.319],
+            description: "Where the Crusaders fought against Tower of Gray on their journey.",
+            image: "img/hongkong.png",
+            imageSource: "JoJo's Bizarre Encyclopedia",  // Just the name of the source
+            imageSourceUrl: "https://jojowiki.com/Minor_Locations/Part_3#Hong_Kong_Skyline"  // Add the URL here
+        },
+        {
+            name: "Ship to Singapore",
+            coordinates: [103.819, 1.352],
+            description: "A ship headed from Hong Kong to Singapore, across the South China Sea. However, it was infitrated by the Imposter Captain Tennille, who is defeated but sabotages the boat, making it explode. The heroes and the crew is forced to evacuate the sinking ship.",
+            image: "img/ship.png", 
+            imageSource: "JoJo's Bizarre Encyclopedia",  // Just the name of the source
+            imageSourceUrl: "https://jojowiki.com/Minor_Locations/Part_3"  // Add the URL here
+        },
+        {
+            name: "Varanasi, India",
+            coordinates: [83.006, 25.317],
+            description: "Where the Crusaders encountered the Empress Stand and fought against Devo.",
+            image: "img/benares.png",
+            imageSource: "JoJo's Bizarre Encyclopedia",  // Just the name of the source
+            imageSourceUrl: "https://jojowiki.com/Minor_Locations/Part_3"  // Add the URL here
+        },
+        {
+            name: "Pakistan",
+            coordinates: [73.084, 33.738], // Islamabad
+            description: "The Crusaders traveled through Pakistan on their journey.",
+            image: "img/pakistan.png",
+            imageSource: "JoJo's Bizarre Encyclopedia",  // Just the name of the source
+            imageSourceUrl: "https://jojowiki.com/Minor_Locations/Part_3"  // Add the URL here
+        },
+        {
+            name: "Cairo, Egypt",
+            coordinates: [31.235, 30.044],
+            description: "DIO's mansion and the final battle location.",
+            image: "img/cairo.png",
+            imageSource: "JoJo's Bizarre Encyclopedia",  // Just the name of the source
+            imageSourceUrl: "https://jojowiki.com/Minor_Locations/Part_3"  // Add the URL here
+        }
+    ],
+    diamond_unbreakable: [
+        {
+            name: "Morioh",
+            coordinates: [140.880, 38.369], // Based on Sendai, Japan
+            description: "The fictional town where most of Diamond is Unbreakable takes place.",
+            image: "img/morioh.png",
+            imageSource: "JoJo's Bizarre Encyclopedia",  // Just the name of the source
+            imageSourceUrl: "https://jojowiki.com/Minor_Locations/Part_4#Manga"  // Add the URL here
+        }
+    ],
+    golden_wind: [
+        {
+            name: "Naples, Italy",
+            coordinates: [14.269, 40.852],
+            description: "The starting location of Giorno's journey.",
+            image: "img/naples.png",
+            imageSource: "JoJo's Bizarre Encyclopedia",  // Just the name of the source
+            imageSourceUrl: "https://jojowiki.com/Minor_Locations/Part_5"  // Add the URL here
+        },
+        {
+            name: "Rome, Italy",
+            coordinates: [12.496, 41.902],
+            description: "Where the final battle against the Boss took place.",
+            image: "img/romegw.png",
+            imageSource: "JoJo's Bizarre Encyclopedia",  // Just the name of the source
+            imageSourceUrl: "https://jojowiki.com/Minor_Locations/Part_5"  // Add the URL here
+        },
+        {
+            name: "Venice, Italy",
+            coordinates: [12.315, 45.440],
+            description: "Where the team battled against Ghiaccio.",
+            image: "img/venice.png",
+            imageSource: "JoJo's Bizarre Encyclopedia",  // Just the name of the source
+            imageSourceUrl: "https://jojowiki.com/Minor_Locations/Part_5"  // Add the URL here
+        },
+        {
+            name: "Sardinia, Italy",
+            coordinates: [9.119, 39.216],
+            description: "The Boss's birthplace and location of crucial backstory events.",
+            image: "img/plane.png",
+            imageSource: "JoJo's Bizarre Encyclopedia",  // Just the name of the source
+            imageSourceUrl: "https://jojowiki.com/Minor_Locations/Part_5"  // Add the URL here
+        }
+    ],
+    stone_ocean: [
+        {
+            name: "Green Dolphin Street Prison",
+            coordinates: [-80.210, 25.791], // Near Miami, Florida
+            description: "The prison where Jolyne was incarcerated and most of the part takes place.",
+            image: "img/bridge.png",
+            imageSource: "JoJo's Bizarre Encyclopedia",  // Just the name of the source
+            imageSourceUrl: "https://jojowiki.com/Minor_Locations/Part_6"  // Add the URL here
+        },
+        {
+            name: "Kennedy Space Center",
+            coordinates: [-80.621, 28.573],
+            description: "Where the final battle of Stone Ocean took place.",
+            image: "img/center.png",
+            imageSource: "JoJo's Bizarre Encyclopedia",  // Just the name of the source
+            imageSourceUrl: "https://jojowiki.com/Kennedy_Space_Center#Manga"  // Add the URL here
+        }
+    ],
+    steel_ball_run: [
+        {
+            name: "San Diego, California",
+            coordinates: [-117.161, 32.715],
+            description: "Starting point of the Steel Ball Run race.",
+            image: "img/beach.png",
+            imageSource: "JoJo's Bizarre Encyclopedia",  // Just the name of the source
+            imageSourceUrl: "https://jojowiki.com/Minor_Locations/Part_7"  // Add the URL here
+        },
+        {
+            name: "New York City",
+            coordinates: [-74.006, 40.713],
+            description: "Finishing point of the Steel Ball Run race.",
+            image: "img/newyorksbr.png",
+            imageSource: "JoJo's Bizarre Encyclopedia",  // Just the name of the source
+            imageSourceUrl: "https://jojowiki.com/Minor_Locations/Part_7"  // Add the URL here
+        },
+        {
+            name: "Monument Valley",
+            coordinates: [-110.101, 36.998],
+            description: "Location of several important battles during the race.",
+            image: "img/valley.png",
+            imageSource: "JoJo's Bizarre Encyclopedia",  // Just the name of the source
+            imageSourceUrl: "https://jojowiki.com/Minor_Locations/Part_7"  // Add the URL here
+        }
+    ],
+    jojolion: [
+        {
+            name: "Morioh (Alternate Universe)",
+            coordinates: [140.880, 38.369], // Based on Sendai, Japan
+            description: "The setting of JoJolion in the alternate universe.",
+            image: "img/moriohpt8.png",
+            imageSource: "JoJo's Bizarre Encyclopedia",  // Just the name of the source
+            imageSourceUrl: "https://jojowiki.com/Minor_Locations/Part_8"  // Add the URL here
+        }
+    ]
+};
+            
+            // Store markers by part for filtering
+            const markersByPart = {
+                phantom_blood: [],
+                battle_tendency: [],
+                stardust_crusaders: [],
+                diamond_unbreakable: [],
+                golden_wind: [],
+                stone_ocean: [],
+                steel_ball_run: [],
+                jojolion: []
+            };
+
+            // Add markers to map when it loads
+            map.on('load', function() {
+                // Create markers for each location
+                Object.keys(jojoLocations).forEach(part => {
+                    jojoLocations[part].forEach(location => {
+                        // Create marker element with Unicode star
+                        const el = document.createElement('div');
+                        el.className = 'unicode-marker';
+                        el.innerHTML = '★'; // Star symbol
+                        el.setAttribute('data-part', part);
+                        
+                        // Add different colors based on the part - using brighter vintage colors
+                        switch(part) {
+                            case 'phantom_blood':
+                                el.style.color = '#CD853F'; // Peru (brighter than Saddle Brown)
+                                break;
+                            case 'battle_tendency':
+                                el.style.color = '#DC143C'; // Crimson (brighter than Indian Red)
+                                break;
+                            case 'stardust_crusaders':
+                                el.style.color = '#FFD700'; // Gold (brighter than Goldenrod)
+                                break;
+                            case 'diamond_unbreakable':
+                                el.style.color = '#5F9EA0'; // Cadet Blue (brighter than Dark Slate Gray)
+                                break;
+                            case 'golden_wind':
+                                el.style.color = '#9ACD32'; // Yellow Green (brighter than Olive Drab)
+                                break;
+                            case 'stone_ocean':
+                                el.style.color = '#1E90FF'; // Dodger Blue (brighter than Steel Blue)
+                                break;
+                            case 'steel_ball_run':
+                                el.style.color = '#B22222'; // Fire Brick (brighter than Maroon)
+                                break;
+                            case 'jojolion':
+                                el.style.color = '#6A5ACD'; // Slate Blue (brighter than Dark Slate Blue)
+                                break;
+                        }
+
+const markerPopup = new mapboxgl.Popup({ offset: 25 })
+    .setHTML(`
+        <h3>${location.name}</h3>
+        <p><strong>Part:</strong> ${partDisplayNames[part]}</p>
+        <p>${location.description}</p>
+        <img src="${location.image}" alt="${location.name}" class="popup-image">
+        ${location.imageSource ? `<p class="image-source">Source: <a href="${location.imageSourceUrl || '#'}" target="_blank" style="color: gold; text-decoration: none;">${location.imageSource}</a></p>` : ''}
+    `);
+                        // Add marker to map with proper anchoring
+                        const marker = new mapboxgl.Marker({
+                            element: el,
+                            anchor: 'center'  // This ensures the marker is centered at its coordinates
+                        })
+                        .setLngLat(location.coordinates)
+                        .setPopup(markerPopup)
+                        .addTo(map);
+                        
+                        // Store marker reference in our collection for filtering
+                        markersByPart[part].push(marker);
+                    });
+                });
+
+                // Create a line for the Stardust Crusaders journey
+                const crusadersJourney = {
+                    'type': 'Feature',
+                    'properties': {},
+                    'geometry': {
+                        'type': 'LineString',
+                        'coordinates': [
+                            [139.839, 35.652], // Tokyo
+                            [114.169, 22.319], // Hong Kong
+                            [103.819, 1.352],  // Singapore
+                            [83.006, 25.317],  // Varanasi
+                            [73.084, 33.738],  // Pakistan
+                            [31.235, 30.044]   // Cairo
+                        ]
+                    }
+                };
+
+                // Add the line source
+                map.addSource('crusaders-route', {
+                    'type': 'geojson',
+                    'data': crusadersJourney
+                });
+
+                // Add the line layer with a more vintage style
+                map.addLayer({
+                    'id': 'crusaders-route',
+                    'type': 'line',
+                    'source': 'crusaders-route',
+                    'layout': {
+                        'line-join': 'round',
+                        'line-cap': 'round'
+                    },
+                    'paint': {
+                        'line-color': '#8e2de2', // Purple color for vintage look
+                        'line-width': 3,
+                        'line-opacity': 0.8,
+                        'line-dasharray': [2, 1] // Create a dashed line effect
+                    }
+                });
+                
+                // Filter markers based on checkboxes
+                document.querySelectorAll('input[type="checkbox"]').forEach(checkbox => {
+                    checkbox.addEventListener('change', function() {
+                        const part = this.value;
+                        const isChecked = this.checked;
+                        
+                        // Show/hide markers for this part
+                        markersByPart[part].forEach(marker => {
+                            if (isChecked) {
+                                marker.addTo(map);
+                            } else {
+                                marker.remove();
+                            }
+                        });
+                        
+                        // Control visibility of Stardust Crusaders journey line
+                        if (part === 'stardust_crusaders') {
+                            // When Stardust Crusaders is checked/unchecked, show/hide the route line
+                            map.setLayoutProperty('crusaders-route', 'visibility', isChecked ? 'visible' : 'none');
+                        }
+                    });
+                });
+            });
+
+            // Fly to location functions
+            document.getElementById('fly-to-joestars').addEventListener('click', () => {
+                map.flyTo({
+                    center: [-0.171, 51.505],
+                    zoom: 10,
+                    essential: true
+                });
+            });
+
+            document.getElementById('fly-to-egypt').addEventListener('click', () => {
+                map.flyTo({
+                    center: [31.235, 30.044],
+                    zoom: 10,
+                    essential: true
+                });
+            });
+
+            document.getElementById('fly-to-morioh').addEventListener('click', () => {
+                map.flyTo({
+                    center: [140.880, 38.369],
+                    zoom: 10,
+                    essential: true
+                });
+            });
+
+            document.getElementById('fly-to-italy').addEventListener('click', () => {
+                map.flyTo({
+                    center: [12.496, 41.902],
+                    zoom: 6,
+                    essential: true
+                });
+            });
+
+            document.getElementById('fly-to-prison').addEventListener('click', () => {
+                map.flyTo({
+                    center: [-80.210, 25.791],
+                    zoom: 10,
+                    essential: true
+                });
+            });
+            
+            // Add zoom out button functionality
+            document.getElementById('zoom-out-btn').addEventListener('click', () => {
+                map.flyTo({
+                    center: [0, 30], // Center on a world view (same as initial)
+                    zoom: 1.5, // Initial zoom level
+                    essential: true
+                });
+            });
+        } catch (error) {
+            console.error("Error initializing map:", error);
+            document.body.innerHTML += `<div style="position:absolute; top:50%; left:50%; transform:translate(-50%,-50%); background:white; padding:20px; z-index:1000; color:red; border:2px solid black;">
+                <h2>Map Error</h2>
+                <p>There was a problem loading the map. Please check your Mapbox access token and try again.</p>
+            </div>`;
+        }
+    </script>
+</body>
+</html>
